@@ -2,143 +2,99 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
-
-This is a **Local MIDI to Sheet Music Web Manager** - a local-first web application for piano enthusiasts to upload MIDI files, automatically convert them to sheet music (MXL and PDF formats) using MuseScore CLI, and manage/search their music library. The application is designed to run locally (`localhost`) or on a local network.
-
-**Current State**: The project has been fully implemented according to the specification in `init.md`. It's a working Next.js application with all core features: MIDI upload, MuseScore conversion, library management, PDF preview, and file downloads.
-
-## Current Architecture
-
-### Technology Stack
-- **Framework**: Next.js 14 with App Router (TypeScript)
-- **Language**: TypeScript
-- **UI**: React with Tailwind CSS
-- **Icons**: Lucide React
-- **PDF Viewer**: Native browser PDF viewer (via iframe)
-- **Backend**: Next.js API routes with Node.js filesystem operations
-- **External Dependency**: MuseScore CLI for MIDI→MXL→PDF conversion
-- **File Upload**: FormData API (no formidable due to TypeScript issues)
-
-### Actual Directory Structure
-```
-piano2/
-├── app/                          # Next.js App Router
-│   ├── api/                      # API routes
-│   │   ├── upload/              # POST: Handle file upload & conversion
-│   │   ├── library/             # GET: List pieces, DELETE: Remove piece
-│   │   ├── search/              # GET: Search pieces
-│   │   └── download/            # GET: Download files
-│   ├── library/                  # Library browsing page
-│   ├── preview/[id]/            # PDF preview page (dynamic route)
-│   ├── upload/                  # Upload page
-│   ├── layout.tsx              # Root layout
-│   ├── page.tsx                # Home page (dashboard)
-│   └── globals.css             # Global styles
-├── components/                   # React components
-│   └── Navigation.tsx          # Main navigation component
-├── lib/                          # Core application logic
-│   ├── storage.ts               # Filesystem operations (createPieceDirectory, etc.)
-│   ├── converter.ts             # MuseScore CLI calls (convertMidToPdf)
-│   ├── metadata.ts              # meta.json handling (createDefaultMetadata, saveMetadata)
-│   └── types.ts                 # TypeScript interfaces (Piece, MetaData, UploadResult, etc.)
-├── public/                       # Static assets (Next.js default icons)
-├── library/                      # MAIN STORAGE (created at runtime, gitignored)
-├── .env.local.example           # Environment variables template
-├── .gitignore                   # Git ignore patterns
-├── next.config.ts               # Next.js configuration
-├── tsconfig.json                # TypeScript configuration
-├── postcss.config.mjs           # PostCSS configuration
-├── package.json                 # Dependencies and scripts
-├── README.md                    # Project documentation
-├── README.en.md                 # English documentation
-├── init.md                      # Original project specification
-└── CLAUDE.md                    # This file
-```
-
-### Core Architectural Patterns
-1. **Local-first architecture**: All data stored in local filesystem, no database
-2. **File-based metadata**: JSON files (`meta.json`) instead of database records
-3. **UUID-based organization**: Each piece gets unique folder with all related files
-4. **Two-stage conversion pipeline**: MIDI → MXL → PDF using MuseScore CLI
-5. **Serverless API routes**: Next.js API routes for backend logic
-
 ## Development Commands
 
-The project is fully implemented and builds successfully. Available commands:
+Core commands (Next.js + TypeScript):
+- npm install — Install dependencies
+- npm run dev — Start dev server (binds to 0.0.0.0)
+- npm run build — Production build
+- npm start — Start production server (binds to 0.0.0.0)
+- npm run lint — Next.js linting
 
-- `npm install` - Install dependencies (already done during setup)
-- `npm run dev` - Start development server (runs on `localhost:3000`)
-- `npm run build` - Create production build (verified working)
-- `npm start` - Start production server
-- `npm run lint` - Run Next.js linting
+Notes:
+- No unit/integration test framework is configured. Do not assume Jest/Vitest exists. If tests are added later, document single-test run commands here.
+- Dev/prod servers are accessible on LAN due to 0.0.0.0 binding; ensure firewall allows port 3000.
 
 ## Environment Configuration
 
-Key environment variables (to be set in `.env.local`):
-- `MUSESCORE_PATH`: Path to MuseScore CLI executable (default: `"C:\Program Files\MuseScore 4\bin\MuseScore4.exe"` on Windows)
-- `LIBRARY_PATH`: Path to library storage directory (default: `./library/`)
-- `MAX_UPLOAD_SIZE`: Maximum file upload size
+Create .env.local and set:
+- MUSESCORE_PATH — Path to MuseScore CLI (e.g., "C:\\Program Files\\MuseScore 4\\bin\\MuseScore4.exe" on Windows)
+- LIBRARY_PATH — Local library directory (default ./library/)
+- MAX_UPLOAD_SIZE — Upload size limit
 
-## File Storage Structure
+If an .env.local.example is added, mirror these keys.
 
-The application uses a structured filesystem approach:
-```
-./library/
-├── {uuid}/          # Unique ID for each piece
-│   ├── original.mid # Uploaded MIDI file
-│   ├── score.mxl    # Generated MXL (MusicXML)
-│   ├── score.pdf    # Generated PDF sheet music
-│   └── meta.json    # Metadata (title, upload date, tags)
-└── ...
-```
+## High-Level Architecture
 
-## Important Implementation Notes
+Local-first web app that converts uploaded MIDI/MXL into sheet music (MusicXML + PDF) using MuseScore CLI and manages a filesystem-backed library.
 
-1. **MuseScore CLI Integration**: Implemented using `child_process.execFile` in `lib/converter.ts`. Error handling includes timeout management and cleanup on failure.
+- Framework: Next.js App Router (TypeScript)
+- UI: React + Tailwind CSS
+- Storage: Local filesystem only; each piece stored under a UUID directory containing original file(s), generated score files, and meta.json
+- Conversion: MuseScore CLI invoked via child_process.execFile; pipeline supports MIDI→MXL→PDF and MXL→PDF
+- Backend: Serverless API routes under app/api/* performing filesystem and conversion operations
+- Preview/Playback: PDF preview page; MIDI/MXL playback integrations via OSMD-related scripts (see layout and public assets)
 
-2. **File Upload Processing**: Implemented using FormData API in `app/api/upload/route.ts`. Originally planned to use `formidable`, but switched to FormData due to TypeScript module declaration issues.
+## Code Structure (big picture)
 
-3. **TypeScript Interfaces**: Fully defined in `lib/types.ts` including `Piece`, `MetaData`, `UploadResult`, `ConversionResult`, etc.
+Focus areas for navigation and modifications:
+- app/
+  - api/: Upload, download, library listing/deletion, search, and auxiliary endpoints (e.g., reconversion, direct MXL serving)
+  - pages: upload (form + client logic), library (browsing/search), preview/[id] (PDF viewing)
+  - layout.tsx: Global layout, styles, and player scripts loading
+- components/:
+  - Navigation.tsx and PDF viewing components (if present)
+- lib/:
+  - storage.ts: Filesystem helpers (createPieceDirectory, file path helpers, deletion)
+  - converter.ts: MuseScore CLI calls and orchestration
+  - metadata.ts: meta.json creation, reading, updating
+  - types.ts: Shared interfaces (Piece, MetaData, UploadResult, ConversionResult, etc.)
+- public/: Static assets and vendor scripts for music playback/testing
+- library/: Runtime storage (gitignored). Per-piece directories hold original and generated files + meta.json
 
-4. **Error Handling**: Robust error handling implemented across all API routes with try-catch blocks, proper HTTP status codes, and filesystem cleanup on failures.
+## Important Behaviors and Conventions
 
-5. **No Authentication**: Designed for single-user/local network use - no auth system required.
+- Metadata: meta.json is the single source for piece metadata; avoid adding a database layer
+- UUID folders: One folder per piece; keep all related files together (original.mid/original.mxl, score.mxl, score.pdf, meta.json)
+- Error handling: API routes use try/catch with appropriate HTTP status codes; converter includes timeout management and cleanup on failure
+- Download vs preview:
+  - /api/download uses a download query param to set Content-Disposition
+  - PDF can be served inline for iframe preview; MIDI/MXL typically download (browser-dependent)
+- Network accessibility: 0.0.0.0 binding intended for local network usage
 
-6. **PDF Preview vs Download**: The `/api/download` endpoint uses a `download` query parameter to control Content-Disposition:
-   - `download=true`: Forces attachment (download) for all file types
-   - `download=false` or omitted for PDF: Uses `inline` for PDF preview in iframe
-   - MXL and MIDI files always use `attachment` unless `download=false` (but still download due to browser handling)
-   - Preview page uses iframe with `download=false`, download buttons use `download=true`
+## Known Endpoints (documented + observed)
 
-7. **Full-Screen PDF Preview**: The preview page includes a full-screen mode with:
-   - Full-screen toggle button in the PDF preview section
-   - Modal overlay covering entire viewport with dedicated controls
-   - ESC key support to exit full-screen
-   - Header with piece title and exit buttons
-   - Footer with download links and keyboard shortcut hint
-   - Responsive design using Tailwind CSS fixed positioning
+- POST /api/upload — Handle file upload and trigger conversion (MIDI or MXL)
+- GET/DELETE /api/library — List pieces, delete a piece
+- GET /api/search — Search by metadata
+- GET /api/download — Download files (supports download=true for attachment)
+- (If present) POST /api/convert — Re-run conversion for an existing piece
+- (If present) GET /api/mxl/[[...slug]] — Serve MXL files directly
 
-## Next Steps and Testing
+When adding or updating endpoints, align with local-first and file-based metadata principles.
 
-The project is fully implemented and ready for testing. To use the application:
+## Tailwind and Styling
 
-1. **Configure MuseScore**: Create `.env.local` from `.env.local.example` and set the correct `MUSESCORE_PATH` for your operating system.
+- Tailwind CSS is configured via globals.css and Next.js PostCSS integration. Tailwind v4 or new postcss adapter may be in use — check imports in app/globals.css and presence of @tailwindcss/postcss. There may be no tailwind.config.js/postcss.config files if using v4 defaults.
 
-2. **Test Upload Functionality**: Run `npm run dev`, navigate to `/upload`, and upload a MIDI file to test the conversion pipeline.
+## Playback/Preview Integration
 
-3. **Verify Library Management**: Check `/library` to see uploaded pieces and search functionality.
+- layout.tsx may load html-midi-player, opensheetmusicdisplay, and osmd-audio-player (a minified vendor script may exist under public/vendor)
+- public may include midi-visualizer-test.html and other demos/test assets
+- PDF preview is implemented via a dedicated page (preview/[id]); rendering may use native iframe or a component (e.g., react-pdf). Verify current usage in app/preview/[id]/page.tsx and components/PDFViewer.tsx if present.
 
-4. **Test PDF Preview**: Click on any piece in the library to preview the generated PDF.
+## Implementation Guidance for Future Changes
 
-**Important Testing Notes**:
-- The application requires MuseScore 4+ installed with CLI support
-- File upload uses FormData API (not formidable due to TypeScript issues)
-- All files are stored locally in the `./library/` directory (gitignored)
-- The build has been verified to complete successfully
-- **Local network access**: The dev server is configured to listen on `0.0.0.0` (all interfaces). To access from other devices on the same network:
-  - Find your computer's local IP address
-  - Access via `http://[YOUR_IP]:3000` from other devices
-  - Ensure firewall allows port 3000
+- Prefer editing existing files over adding new ones. Keep improvements minimal and focused.
+- Maintain the two-stage conversion pipeline and UUID directory structure.
+- Validate only at system boundaries (user input, external tools); trust internal code paths.
+- Avoid introducing authentication or remote data stores; this is a single-user local-first app.
+- Be mindful of OS-specific paths (Windows MuseScore path) and process execution.
 
-Refer to `init.md` for the original project specification and `README.md` for user documentation.
+## Quick Pointers
+
+- To add new metadata fields: update lib/types.ts and lib/metadata.ts, then adjust API responses and UI pages that consume metadata
+- To modify conversion: update lib/converter.ts and ensure API routes invoking it handle errors/timeouts consistently
+- To add a new file type: extend storage.ts paths, converter.ts handling, and download/preview logic accordingly
+
+Refer to README.md and init.md for user-facing details. Keep this file concise and focused on how Claude Code should work within this repository.

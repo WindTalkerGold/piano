@@ -83,7 +83,7 @@ export default function PreviewPage() {
 
     let cancelled = false;
 
-    const tryInit = () => {
+    const tryInit = async () => {
       const container = osmdRef.current;
       if (!container) {
         // Retry on next frame until container is mounted
@@ -91,21 +91,15 @@ export default function PreviewPage() {
         return;
       }
 
-      // @ts-ignore
-      const OSMD = (window as any).opensheetmusicdisplay?.OpenSheetMusicDisplay;
-      // @ts-ignore
-      const OsmdAudioPlayer = (window as any).OsmdAudioPlayer;
-      if (!OSMD) {
-        console.error('OSMD script not loaded');
-        return;
-      }
+      // Import from npm packages instead of global window
+      const { OpenSheetMusicDisplay } = await import('opensheetmusicdisplay');
+      const OsmdAudioPlayerModule = await import('osmd-audio-player');
+      const OsmdAudioPlayer = (OsmdAudioPlayerModule as any).default || (OsmdAudioPlayerModule as any).OsmdAudioPlayer;
 
-      const osmd = new OSMD(container, {
+      const osmd = new OpenSheetMusicDisplay(container as HTMLElement, {
         autoResize: true,
         drawTitle: true,
         drawComposer: true,
-        cursor: { enabled: true },
-        backend: 'canvas',
       });
 
       let audioPlayer: any;
@@ -268,6 +262,14 @@ export default function PreviewPage() {
 
   return (
     <div className="space-y-8">
+      <style jsx global>{`
+        @layer base {
+          img,
+          video {
+            height: revert-layer !important;
+          }
+        }
+      `}</style>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <Link

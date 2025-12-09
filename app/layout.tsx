@@ -20,9 +20,6 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
-        <Script src="https://cdn.jsdelivr.net/combine/npm/tone@14.7.58,npm/@magenta/music@1.23.1/es6/core.js,npm/focus-visible@5,npm/html-midi-player@1.5.0" strategy="afterInteractive" />
-        <Script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.8.6/build/opensheetmusicdisplay.min.js" strategy="afterInteractive" />
-        <Script src="/vendor/osmd-audio-player.min.js" strategy="afterInteractive" />
       </head>
       <body className={`${inter.className} bg-gray-50 text-gray-900`}>
         <div className="min-h-screen flex flex-col">
