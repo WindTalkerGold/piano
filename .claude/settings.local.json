@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(timeout:*)",
+      "Bash(dir:*)",
+      "Bash(cmd /C \"netstat -ano | findstr :3000\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nImplement MIDI library manager with upload, conversion, and preview\n\n- Add Next.js application with App Router\n- Implement MIDI upload and MuseScore conversion pipeline  \n- Create library management with search and preview\n- Add PDF preview with full-screen mode\n- Set up local file storage with metadata\n- Update documentation and configuration\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nUpdate Claude Code settings\n\n- Add git commit command to allowed list\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell -command:*)",
+      "Bash(curl:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create --title \"Preview: make MIDI player functional and restore full-screen\" --body \"$(cat <<''EOF''\n## Summary\n- Set midi-player src to piece MID so it''s playable immediately\n- Restore original PDF full-screen button in preview page\n- Load html-midi-player scripts via next/script in layout\n- Include public/midi-visualizer-test.html for e2e verification\n\n## Test plan\n- Open /preview/[id] for a piece\n  - MIDI player shows controls and can play immediately\n  - Click Full Screen to open modal and verify PDF still works\n- Visit /midi-visualizer-test.html\n  - Verify local MIDI loads and plays via API\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\nEOF\n)\")",
+      "Bash(git stash:*)",
+      "mcp__chrome-devtools__new_page",
+      "mcp__chrome-devtools__list_console_messages",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__list_network_requests",
+      "mcp__chrome-devtools__get_console_message",
+      "Bash(git rev-parse:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

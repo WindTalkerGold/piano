@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OSMD Demo: Display & Playback</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; }
+    header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    #controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    #container { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+    .cursor-example-rectangle { position: absolute; pointer-events: none; }
+    /* Optional: visually indicate cursor */
+    .osmd-cursor { background: rgba(0, 150, 255, 0.2); }
+    .hidden { display: none; }
+    button { padding: 6px 10px; }
+    input[type="range"] { width: 160px; }
+  </style>
+  <!-- OpenSheetMusicDisplay core -->
+  <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.8.6/build/opensheetmusicdisplay.min.js"></script>
+  <!-- OSMD Audio Player (web audio synthesizer) - local UMD to avoid CORB -->
+  <script src="/vendor/osmd-audio-player.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1 style="margin:0;">OpenSheetMusicDisplay Demo</h1>
+  </header>
+
+  <section id="controls">
+    <label for="tempo">Tempo</label>
+    <input id="tempo" type="range" min="30" max="240" value="120" />
+    <span id="tempoValue">120 BPM</span>
+    <button id="playBtn">Play</button>
+    <button id="pauseBtn" disabled>Pause</button>
+    <button id="stopBtn" disabled>Stop</button>
+  </section>
+
+  <section id="container"></section>
+
+  <script>
+    // Determine score source: prefer API if pieceId is provided
+    const params = new URLSearchParams(window.location.search);
+    const pieceId = params.get('pieceId');
+    const SCORE_URL = pieceId
+      ? `/api/mxl/${encodeURIComponent(pieceId)}.mxl`
+      : "/test.mxl"; // fallback to local file
+
+    const container = document.getElementById("container");
+    const playBtn = document.getElementById("playBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const tempoSlider = document.getElementById("tempo");
+    const tempoValue = document.getElementById("tempoValue");
+
+    // Initialize OSMD
+    const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay(container, {
+      autoResize: true,
+      drawTitle: true,
+      drawSubtitle: true,
+      drawComposer: true,
+      cursor: { enabled: true },
+      backend: "canvas",
+    });
+
+    // Initialize Audio Player and bind to OSMD
+    // UMD global exposes window.OsmdAudioPlayer (PlaybackEngine)
+    // Construct with OSMD instance
+    let audioPlayer;
+
+    async function loadScore() {
+      try {
+        // Try URL first (OSMD handles .mxl by URL), then fallback to ArrayBuffer
+        try {
+          await osmd.load(SCORE_URL);
+        } catch (e) {
+          const resp = await fetch(SCORE_URL);
+          const buf = await resp.arrayBuffer();
+          await osmd.load(buf);
+        }
+        await osmd.render();
+        // Ensure cursor is visible
+        osmd.cursor.show();
+        osmd.cursor.reset();
+        setEnabled(true, false, false);
+      } catch (err) {
+        console.error("Failed to load/render score:", err);
+        container.innerHTML = `<p style="color:red">Error loading score: ${err}</p>`;
+      }
+    }
+
+    function setEnabled(playEnabled, pauseEnabled, stopEnabled) {
+      playBtn.disabled = !playEnabled;
+      pauseBtn.disabled = !pauseEnabled;
+      stopBtn.disabled = !stopEnabled;
+    }
+
+    tempoSlider.addEventListener("input", () => {
+      const bpm = parseInt(tempoSlider.value, 10);
+      tempoValue.textContent = `${bpm} BPM`;
+      if (audioPlayer && typeof audioPlayer.setTempo === 'function') audioPlayer.setTempo(bpm);
+    });
+
+    playBtn.addEventListener("click", async () => {
+      try {
+        if (!audioPlayer) {
+          audioPlayer = new OsmdAudioPlayer();
+          if (typeof audioPlayer.loadScore === 'function') {
+            await audioPlayer.loadScore(osmd);
+          }
+        }
+        if (audioPlayer.context && audioPlayer.context.state === 'suspended') {
+          await audioPlayer.context.resume();
+        }
+        const bpm = parseInt(tempoSlider.value, 10);
+        if (typeof audioPlayer.setTempo === 'function') audioPlayer.setTempo(bpm);
+        await audioPlayer.play();
+        setEnabled(false, true, true);
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
+    pauseBtn.addEventListener("click", async () => {
+      try {
+        await audioPlayer.pause();
+        setEnabled(true, false, true);
+      } catch (e) { console.error(e); }
+    });
+
+    stopBtn.addEventListener("click", async () => {
+      try {
+        await audioPlayer.stop();
+        osmd.cursor.reset();
+        setEnabled(true, false, false);
+      } catch (e) { console.error(e); }
+    });
+
+    // Note: UMD API may not expose event hooks uniformly.
+    // We manage UI state via button handlers above.
+    // Also ensure audio context starts after user gesture (Chrome autoplay policy)
+    window.addEventListener('click', () => {
+      try { if (audioPlayer && audioPlayer.context && audioPlayer.context.state === 'suspended') { audioPlayer.context.resume(); } } catch {}
+    }, { once: true });
+
+    // Load on startup
+    loadScore();
+
+    // Resize handling to keep cursor aligned after container size changes
+    window.addEventListener("resize", () => {
+      // Re-render keeps cursor overlay aligned to notation
+      osmd.render();
+    });
+  </script>
+</body>
+</html>

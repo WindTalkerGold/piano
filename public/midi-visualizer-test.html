@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MIDI Visualizer Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 20px; }
+    header { margin-bottom: 16px; }
+    .container { max-width: 960px; margin: 0 auto; }
+    midi-visualizer { display: block; border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+    .controls { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
+    button { padding: 6px 10px; }
+    .note { color: #555; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>MIDI Visualizer Local Test</h1>
+      <p class="note">This page uses html-midi-player's <code>midi-visualizer</code> with a local MIDI file from the library folder.</p>
+    </header>
+
+    
+    <midi-player
+  src="/api/download?pieceId=c67ea4a5-3b65-431b-b15a-032da61575c9&type=mid&download=true" 
+  sound-font visualizer="#myStaffVisualizer">
+</midi-player>
+
+
+
+    <p class="note" style="margin-top:12px;">If audio does not start, click within the page first to allow audio playback.</p>
+
+    <p style="margin-top:24px;">For more information, see the
+      <a href="https://github.com/cifkao/html-midi-player" target="_blank"><strong>html-midi-player</strong> repository</a> on GitHub.</p>
+  </div>
+
+  <!-- Scripts from the example -->
+  <script src="https://cdn.jsdelivr.net/combine/npm/tone@14.7.58,npm/@magenta/music@1.23.1/es6/core.js,npm/focus-visible@5,npm/html-midi-player@1.5.0"></script>
+
+  <!-- Connect visualizers to the built-in player -->
+  <script>
+    const player = document.getElementById('player');
+    const staffVis = document.getElementById('myStaffVisualizer');
+    const rollVis = document.getElementById('myRollVisualizer');
+
+    // html-midi-player exposes addVisualizer on the player element
+    player.addVisualizer(staffVis, { scrollType: 'continuous' });
+    player.addVisualizer(rollVis, { scrollType: 'continuous' });
+  </script>
+</body>
+</html>
