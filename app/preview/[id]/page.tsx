@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Download, FileText, Music, Calendar, Tag, Maximize2, Minimize2, X } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Music, Calendar, Tag } from 'lucide-react';
 import Link from 'next/link';
 // import PDFViewer from '@/components/PDFViewer';
 import type { Piece } from '@/lib/types';
@@ -15,7 +15,6 @@ export default function PreviewPage() {
   const [piece, setPiece] = useState<Piece | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isFullScreen, setIsFullScreen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
   const osmdRef = useRef<HTMLDivElement | null>(null);
@@ -24,19 +23,6 @@ export default function PreviewPage() {
     fetchPiece();
   }, [pieceId]);
 
-  // Handle ESC key to exit full-screen
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isFullScreen]);
 
   // Detect mobile device
   useEffect(() => {
@@ -289,27 +275,17 @@ export default function PreviewPage() {
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Sheet Music</h2>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsFullScreen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              title="Full screen preview"
-            >
-              <Maximize2 className="h-4 w-4" />
-              Full Screen
-            </button>
+          <div className="flex items-center gap-4">
+            <label htmlFor="tempoRange" className="text-sm text-gray-700">Tempo</label>
+            <input id="tempoRange" type="range" min="30" max="240" defaultValue="120" />
+            <span id="tempoValue" className="text-sm text-gray-500">120 BPM</span>
+            <button id="playBtn" className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:text-white disabled:cursor-not-allowed disabled:opacity-60">Play</button>
+            <button id="pauseBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Pause</button>
+            <button id="stopBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Stop</button>
           </div>
         </div>
         <div className="h-[700px] rounded-lg border relative">
           <div ref={osmdRef} className="h-full overflow-auto"></div>
-        </div>
-        <div className="mt-4 flex items-center gap-3 relative z-10">
-          <label htmlFor="tempoRange" className="text-sm text-gray-700">Tempo</label>
-          <input id="tempoRange" type="range" min="30" max="240" defaultValue="120" />
-          <span id="tempoValue" className="text-sm text-gray-500">120 BPM</span>
-          <button id="playBtn" className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">Play</button>
-          <button id="pauseBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300" disabled>Pause</button>
-          <button id="stopBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300" disabled>Stop</button>
         </div>
       </div>
 
@@ -434,71 +410,6 @@ export default function PreviewPage() {
         </div>
       </div>
 
-      {/* Full-screen Sheet Music Modal */}
-      {isFullScreen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white">
-          {/* Header with controls */}
-          <div className="flex items-center justify-between border-b bg-white px-6 py-4 shadow-sm">
-            <div className="flex items-center gap-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {piece?.meta.title || 'Sheet Music'}
-              </h2>
-              <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
-                Full Screen
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsFullScreen(false)}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
-                title="Exit full screen (ESC)"
-              >
-                <Minimize2 className="h-4 w-4" />
-                Exit Full Screen
-              </button>
-              <button
-                onClick={() => setIsFullScreen(false)}
-                className="rounded-full p-2 text-gray-500 hover:bg-gray-100"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* OSMD Container */}
-          <div className="flex-1 overflow-hidden">
-            <div ref={osmdRef} className="h-full"></div>
-          </div>
-
-          {/* Footer with info */}
-          <div className="border-t bg-gray-50 px-6 py-3 text-sm text-gray-600">
-            <div className="flex items-center justify-between">
-              <div>
-                Press <kbd className="rounded border bg-white px-2 py-0.5 font-mono text-xs">ESC</kbd> to exit full screen
-              </div>
-              <div className="flex items-center gap-4">
-                <a
-                  href={`/api/mxl/${encodeURIComponent(pieceId)}.mxl`}
-                  className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800"
-                  download
-                >
-                  <Download className="h-4 w-4" />
-                  Download MXL
-                </a>
-                <a
-                  href={`/api/download?pieceId=${pieceId}&type=mid&download=true`}
-                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800"
-                  download
-                >
-                  <Download className="h-4 w-4" />
-                  Download MIDI
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
