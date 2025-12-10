@@ -172,47 +172,16 @@ export default function PreviewPage() {
               await audioPlayer.loadScore(osmd);
 
               // Load instrument-specific soundfont (POC: piano, violin, guitar)
-              const instr = (piece?.meta as any)?.instrument || 'piano';
-              if (!instr) {
-                console.warn('Instrument missing, defaulting to piano');
-              }
+              const instr = 'piano';
               const sf2 = await loadSoundfont(instr);
               const ap: any = audioPlayer;
               if (sf2 && typeof ap.loadSoundfontArrayBuffer === 'function') {
                 try {
                   await ap.loadSoundfontArrayBuffer(sf2);
+                  console.log(`Loaded soundfont for instrument: ${instr}`);
                 } catch (sfErr) {
                   console.warn('Failed to initialize soundfont:', sfErr);
                 }
-              }
-
-              // Apply per-piece instrument mapping (prefer name APIs)
-              try {
-                const nameMap: Record<string, string> = {
-                  piano: 'acoustic_grand_piano',
-                  violin: 'violin',
-                  guitar: 'nylon_guitar',
-                };
-                const instrumentName = nameMap[instr] || nameMap['piano'];
-
-                if (typeof ap.setInstrumentName === 'function') {
-                  ap.setInstrumentName(instrumentName);
-                } else if (typeof ap.setInstrumentByName === 'function') {
-                  ap.setInstrumentByName(instrumentName);
-                } else {
-                  // Fallback to GM program numbers
-                  const gmMap: Record<string, number> = { piano: 0, violin: 40, guitar: 24 };
-                  const program = gmMap[instr] ?? 0;
-                  if (typeof ap.setProgram === 'function') {
-                    ap.setProgram(0, program);
-                  } else if (typeof ap.setInstruments === 'function') {
-                    ap.setInstruments([program]);
-                  } else if (typeof ap.setInstrument === 'function') {
-                    ap.setInstrument(program);
-                  }
-                }
-              } catch (mapErr) {
-                console.warn('Instrument mapping not applied:', mapErr);
               }
             } catch (e) {
               console.error('Audio player failed to load score:', e);
@@ -516,35 +485,15 @@ export default function PreviewPage() {
             This piece is stored locally in your library directory.
           </p>
 
-          {/* Instrument selection */}
-          <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-100 p-3">
-            <label className="block text-sm font-medium text-yellow-900 mb-1">Playback Instrument</label>
+          {/* Instrument selection (disabled) */}
+          <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-100 p-3 opacity-60">
+            <label className="block text-sm font-medium text-yellow-900 mb-1">Playback Instrument (fixed to Piano)</label>
             <div className="flex gap-2">
-              <select
-                defaultValue={piece.meta.instrument || 'piano'}
-                className="flex-1 rounded border border-yellow-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
-                onChange={async (e) => {
-                  const selected = e.target.value as 'piano' | 'violin' | 'guitar' | 'flute' | 'drums';
-                  const res = await fetch('/api/library', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pieceId, instrument: selected })
-                  });
-                  if (res.ok) {
-                    setPiece({ ...piece!, meta: { ...piece!.meta, instrument: selected } });
-                    alert('Instrument updated');
-                  } else {
-                    const data = await res.json().catch(() => ({}));
-                    alert(`Instrument update failed: ${data.error || res.statusText}`);
-                  }
-                }}
-              >
-                <option value="piano">Piano</option>
-                <option value="violin">Violin</option>
-                <option value="guitar">Guitar</option>
-                <option value="flute">Flute</option>
-                <option value="drums">Drums</option>
-              </select>
+              <input
+                readOnly
+                value="Piano"
+                className="flex-1 rounded border border-yellow-300 bg-white px-3 py-2 text-sm text-gray-900"
+              />
             </div>
           </div>
 
