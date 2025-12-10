@@ -132,6 +132,38 @@ export default function PreviewPage() {
           if (typeof audioPlayer.loadScore === 'function') {
             try {
               await audioPlayer.loadScore(osmd);
+              // Apply per-piece instrument mapping (GM programs) if available
+              try {
+                const instrument = (piece?.meta as any)?.instrument || 'piano';
+                const gmMap: Record<string, number> = {
+                  piano: 0,
+                  violin: 40,
+                  guitar: 24,
+                  flute: 73,
+                  drums: -1, // special percussion channel handling
+                };
+                const program = gmMap[instrument] ?? 0;
+
+                const ap: any = audioPlayer;
+                // Prefer setProgram(channel, program)
+                if (program >= 0 && typeof ap.setProgram === 'function') {
+                  ap.setProgram(0, program);
+                } else if (program >= 0 && typeof ap.setInstruments === 'function') {
+                  ap.setInstruments([program]);
+                } else if (program >= 0 && typeof ap.setInstrument === 'function') {
+                  ap.setInstrument(program);
+                }
+
+                if (instrument === 'drums') {
+                  if (typeof ap.setPercussionChannel === 'function') {
+                    ap.setPercussionChannel(9); // MIDI ch10 => zero-based 9
+                  } else if (typeof ap.setProgram === 'function') {
+                    ap.setProgram(9, 0);
+                  }
+                }
+              } catch (mapErr) {
+                console.warn('Instrument mapping not applied:', mapErr);
+              }
             } catch (e) {
               console.error('Audio player failed to load score:', e);
             }
