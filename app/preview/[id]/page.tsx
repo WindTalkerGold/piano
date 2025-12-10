@@ -88,6 +88,29 @@ export default function PreviewPage() {
         drawComposer: true,
       });
 
+      // Helper: resolve soundfont URL by instrument
+      const sfUrlForInstrument = (instr: string) => {
+        const map: Record<string, string> = {
+          piano: '/sf/piano.sf2',
+          violin: '/sf/vciolin.sf2', // user-provided filename
+          guitar: '/sf/guitar.sf2',
+        };
+        return map[instr] || map['piano'];
+      };
+
+      // Fetch soundfont as ArrayBuffer
+      const loadSoundfont = async (instr: string) => {
+        const url = sfUrlForInstrument(instr);
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error(`Soundfont fetch failed: ${resp.status}`);
+          return await resp.arrayBuffer();
+        } catch (e) {
+          console.warn('Failed to load soundfont, falling back to default:', e);
+          return null;
+        }
+      };
+
       let audioPlayer: any;
       const tempoRange = document.getElementById('tempoRange') as HTMLInputElement | null;
       const tempoValue = document.getElementById('tempoValue');
@@ -132,9 +155,21 @@ export default function PreviewPage() {
           if (typeof audioPlayer.loadScore === 'function') {
             try {
               await audioPlayer.loadScore(osmd);
+
+              // Load instrument-specific soundfont (POC: piano, violin, guitar)
+              const instr = (piece?.meta as any)?.instrument || 'piano';
+              const sf2 = await loadSoundfont(instr);
+              if (sf2 && typeof (audioPlayer as any).loadSoundfontArrayBuffer === 'function') {
+                try {
+                  await (audioPlayer as any).loadSoundfontArrayBuffer(sf2);
+                } catch (sfErr) {
+                  console.warn('Failed to initialize soundfont:', sfErr);
+                }
+              }
+
               // Apply per-piece instrument mapping (GM programs) if available
               try {
-                const instrument = (piece?.meta as any)?.instrument || 'piano';
+                const instrument = instr;
                 const gmMap: Record<string, number> = {
                   piano: 0,
                   violin: 40,
