@@ -138,8 +138,10 @@ export default function PreviewPage() {
       const ensureCursorInView = () => {
         const containerEl = osmdRef.current as HTMLElement | null;
         if (!containerEl) return;
-        // OSMD cursor draws an SVG element with class 'cursor'
-        const cursorEl = containerEl.querySelector('.cursor') as HTMLElement | null;
+        // OSMD cursor element can be an <image> with id like cursorImg-0
+        const cursorEl = (containerEl.querySelector('#cursorImg-0') as HTMLElement | null)
+          || (containerEl.querySelector('[id^="cursorImg"]') as HTMLElement | null)
+          || (containerEl.querySelector('.cursor') as HTMLElement | null);
         if (!cursorEl) return;
         const cRect = cursorEl.getBoundingClientRect();
         const contRect = containerEl.getBoundingClientRect();
