@@ -21,6 +21,7 @@
     "react-dom": "19.2.0",
     "react-pdf": "^10.2.0",
     "sharp": "^0.33.0",
+    "spessasynth_lib": "^4.0.18",
     "uuid": "^10.0.0"
   },
   "devDependencies": {

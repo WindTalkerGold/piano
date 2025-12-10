@@ -140,8 +140,8 @@ export default function PreviewPage() {
         if (!containerEl) return;
         // OSMD cursor element can be an <image> with id like cursorImg-0
         const cursorEl = (containerEl.querySelector('#cursorImg-0') as HTMLElement | null)
-          || (containerEl.querySelector('[id^="cursorImg"]') as HTMLElement | null)
-          || (containerEl.querySelector('.cursor') as HTMLElement | null);
+          || (containerEl.querySelector('[id^="cursorImg"]') as HTMLElement | null);
+        //console.log('Cursor Element:', cursorEl);
         if (!cursorEl) return;
         const cRect = cursorEl.getBoundingClientRect();
         const contRect = containerEl.getBoundingClientRect();
