@@ -92,7 +92,7 @@ export default function PreviewPage() {
       const sfUrlForInstrument = (instr: string) => {
         const map: Record<string, string> = {
           piano: '/sf/piano.sf2',
-          violin: '/sf/vciolin.sf2', // user-provided filename
+          violin: '/sf/violin.sf2',
           guitar: '/sf/guitar.sf2',
         };
         return map[instr] || map['piano'];
@@ -159,41 +159,38 @@ export default function PreviewPage() {
               // Load instrument-specific soundfont (POC: piano, violin, guitar)
               const instr = (piece?.meta as any)?.instrument || 'piano';
               const sf2 = await loadSoundfont(instr);
-              if (sf2 && typeof (audioPlayer as any).loadSoundfontArrayBuffer === 'function') {
+              const ap: any = audioPlayer;
+              if (sf2 && typeof ap.loadSoundfontArrayBuffer === 'function') {
                 try {
-                  await (audioPlayer as any).loadSoundfontArrayBuffer(sf2);
+                  await ap.loadSoundfontArrayBuffer(sf2);
                 } catch (sfErr) {
                   console.warn('Failed to initialize soundfont:', sfErr);
                 }
               }
 
-              // Apply per-piece instrument mapping (GM programs) if available
+              // Apply per-piece instrument mapping (prefer name APIs)
               try {
-                const instrument = instr;
-                const gmMap: Record<string, number> = {
-                  piano: 0,
-                  violin: 40,
-                  guitar: 24,
-                  flute: 73,
-                  drums: -1, // special percussion channel handling
+                const nameMap: Record<string, string> = {
+                  piano: 'acoustic_grand_piano',
+                  violin: 'violin',
+                  guitar: 'nylon_guitar',
                 };
-                const program = gmMap[instrument] ?? 0;
+                const instrumentName = nameMap[instr] || nameMap['piano'];
 
-                const ap: any = audioPlayer;
-                // Prefer setProgram(channel, program)
-                if (program >= 0 && typeof ap.setProgram === 'function') {
-                  ap.setProgram(0, program);
-                } else if (program >= 0 && typeof ap.setInstruments === 'function') {
-                  ap.setInstruments([program]);
-                } else if (program >= 0 && typeof ap.setInstrument === 'function') {
-                  ap.setInstrument(program);
-                }
-
-                if (instrument === 'drums') {
-                  if (typeof ap.setPercussionChannel === 'function') {
-                    ap.setPercussionChannel(9); // MIDI ch10 => zero-based 9
-                  } else if (typeof ap.setProgram === 'function') {
-                    ap.setProgram(9, 0);
+                if (typeof ap.setInstrumentName === 'function') {
+                  ap.setInstrumentName(instrumentName);
+                } else if (typeof ap.setInstrumentByName === 'function') {
+                  ap.setInstrumentByName(instrumentName);
+                } else {
+                  // Fallback to GM program numbers
+                  const gmMap: Record<string, number> = { piano: 0, violin: 40, guitar: 24 };
+                  const program = gmMap[instr] ?? 0;
+                  if (typeof ap.setProgram === 'function') {
+                    ap.setProgram(0, program);
+                  } else if (typeof ap.setInstruments === 'function') {
+                    ap.setInstruments([program]);
+                  } else if (typeof ap.setInstrument === 'function') {
+                    ap.setInstrument(program);
                   }
                 }
               } catch (mapErr) {
