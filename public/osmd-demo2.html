@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>OSMD + FluidSynth (SF2) demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 18px; }
+    .controls { margin: 12px 0; display:flex; gap:8px; align-items:center; }
+    button { padding:8px 12px; border-radius:6px; border:1px solid #ccc; background:white; cursor:pointer; }
+    button:disabled { opacity:0.5; cursor:not-allowed; }
+    #osmd { border: 1px solid #ddd; height: 520px; overflow:auto; border-radius:8px; padding:8px; }
+  </style>
+</head>
+<body>
+  <h1>OSMD + FluidSynth WASM (.sf2) demo</h1>
+  <p>
+    Requirements: place <code>fluidsynth_wasm.js</code> + <code>fluidsynth.wasm</code>,
+    <code>my_custom.sf2</code>, and <code>score.mxl</code> in the same folder as this file.
+  </p>
+
+  <div class="controls">
+    <label>Tempo: <input id="tempoRange" type="range" min="30" max="240" value="120" /></label>
+    <span id="tempoValue">120 BPM</span>
+    <button id="loadScoreBtn">Load Score</button>
+    <button id="initSynthBtn">Init Synth</button>
+    <button id="playBtn" disabled>Play</button>
+    <button id="pauseBtn" disabled>Pause</button>
+    <button id="stopBtn" disabled>Stop</button>
+  </div>
+
+  <div id="osmd"></div>
+
+  <script src="https://unpkg.com/opensheetmusicdisplay/build/opensheetmusicdisplay.min.js"></script>
+  <!-- fluidsynth_wasm.js must expose a factory function or global FluidSynthWasm.
+       Many WASM builds provide an async factory: const wasm = await FluidSynthWasm(); -->
+  <script>
+  (function () {
+    // DOM refs
+    const osmdContainer = document.getElementById('osmd');
+    const loadScoreBtn = document.getElementById('loadScoreBtn');
+    const initSynthBtn = document.getElementById('initSynthBtn');
+    const playBtn = document.getElementById('playBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const tempoRange = document.getElementById('tempoRange');
+    const tempoValue = document.getElementById('tempoValue');
+
+    tempoRange.addEventListener('input', () => {
+      tempoValue.textContent = `${tempoRange.value} BPM`;
+    });
+
+    // State
+    let osmd = null;
+    let midiData = null; // from osmd.backend.getMidi()
+    let synth = null;    // the FluidSynth instance
+    let audioCtx = null;
+    let sfLoaded = false;
+
+    // Scheduler state
+    let scheduledTimeouts = [];
+    let playbackStartRealTime = null; // performance.now() at start
+    let playbackPaused = false;
+    let elapsedWhenPaused = 0; // ms
+
+    // Simple utility: clear scheduled timeouts
+    function clearScheduled() {
+      scheduledTimeouts.forEach(id => clearTimeout(id));
+      scheduledTimeouts = [];
+    }
+
+    // Initialize OSMD
+    async function initOsmd() {
+      osmd = new window.OpenSheetMusicDisplay(osmdContainer, {
+        autoResize: true,
+        drawTitle: true,
+        drawCredits: false,
+      });
+      // load button will trigger load score
+      console.log('OSMD initialized');
+    }
+
+    // Load score.mxl (you can change the path)
+    async function loadScore() {
+      if (!osmd) await initOsmd();
+
+      const SCORE_URL = './score.mxl'; // adapt path as needed
+      try {
+        // Prefer osmd.load(url) — OSMD loads XSLT/XHTML or binary string — fetch if needed
+        // Use osmd.load with URL (may work in many hosts). If it fails, fallback to arrayBuffer->latin1 conversion
+        try {
+          await osmd.load(SCORE_URL);
+        } catch (err) {
+          console.warn('osmd.load failed, fetching and fallback decode', err);
+          const resp = await fetch(SCORE_URL);
+          if (!resp.ok) throw new Error('score fetch failed: ' + resp.status);
+          const buf = await resp.arrayBuffer();
+          // binary-safe conversion to latin1 string so osmd.load can parse zipped MXL in some setups
+          const bin = new TextDecoder('latin1').decode(new Uint8Array(buf));
+          await osmd.load(bin);
+        }
+        await osmd.render();
+        // get midi-like events
+        if (osmd.backend && typeof osmd.backend.getMidi === 'function') {
+          try {
+            midiData = osmd.backend.getMidi();
+            console.log('Extracted MIDI-like data from OSMD:', midiData);
+          } catch (e) {
+            console.warn('Failed to get MIDI data from OSMD backend:', e);
+            midiData = null;
+          }
+        } else {
+          console.warn('osmd.backend.getMidi not available');
+          midiData = null;
+        }
+        // Enable Play only if we have midiData and synth will be initialized later
+        playBtn.disabled = false;
+        pauseBtn.disabled = true;
+        stopBtn.disabled = true;
+      } catch (e) {
+        console.error('Failed to load/render score:', e);
+        alert('Failed to load score: ' + e.message);
+      }
+    }
+
+    // Initialize FluidSynth WASM and load SF2
+    async function initFluidSynth() {
+      if (synth) {
+        console.log('Synth already initialized');
+        return;
+      }
+
+      try {
+        // NOTE: the demo expects a local file 'fluidsynth_wasm.js' and 'fluidsynth.wasm'
+        // The JS file should expose an async factory function named FluidSynthWasm or window.FluidSynthWasm
+        // Example usage:
+        //   const factory = await FluidSynthWasm();
+        //   const fluidsynth = new factory.FluidSynth(audioCtx.sampleRate);
+        //   fluidsynth.init(audioCtx);
+        //
+        // If your WASM build exposes a different API, adapt this block accordingly.
+
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Dynamically load the fluidsynth_wasm wrapper script (assumed at local path)
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = './fluidsynth_wasm.js'; // <-- put your build here
+          s.onload = resolve;
+          s.onerror = () => reject(new Error('Failed to load fluidsynth_wasm.js (check path)'));
+          document.head.appendChild(s);
+        });
+
+        // Wait for factory availability
+        if (typeof window.FluidSynthWasm !== 'function' && typeof window.FluidSynthWasm !== 'object') {
+          // Might be an async factory function: e.g., FluidSynthWasm().then(...)
+          if (typeof window.FluidSynthWasm === 'undefined' && typeof window.FluidSynthWasmAsync === 'function') {
+            // optional fallback name
+            window.FluidSynthWasm = await window.FluidSynthWasmAsync();
+          } else if (typeof window.FluidSynthWasm === 'undefined') {
+            // Try if script attached a factory promise name
+            console.warn('Expected FluidSynthWasm factory not found on window. Please check your wasm build export.');
+            throw new Error('FluidSynthWasm factory not found globally');
+          }
+        }
+
+        // Some builds export an async factory function; normalize:
+        let factoryModule = null;
+        if (typeof window.FluidSynthWasm === 'function') {
+          // If it's a function returning a promise or object
+          const maybe = window.FluidSynthWasm();
+          factoryModule = (maybe instanceof Promise) ? await maybe : maybe;
+        } else {
+          factoryModule = window.FluidSynthWasm;
+        }
+
+        if (!factoryModule) {
+          throw new Error('FluidSynthWasm factory returned falsy module');
+        }
+
+        // The exact API depends on the wasm build. Below we assume an API:
+        // factoryModule.FluidSynth  -> constructor
+        // instance.init(audioCtx) -> initialize with audio context
+        // instance.loadSFont(uint8Array) -> load SF2 bytes
+        // instance.noteOn(channel, midi, velocity) / noteOff(channel,midi)
+        //
+        // If your build uses different names, adapt accordingly.
+
+        const FluidSynthFactory = factoryModule.FluidSynth || factoryModule.default || factoryModule;
+        if (!FluidSynthFactory) {
+          throw new Error('Could not find FluidSynth constructor on factory module');
+        }
+
+        // instantiate
+        synth = new FluidSynthFactory(audioCtx.sampleRate);
+        // many builds require init(audioContext)
+        if (typeof synth.init === 'function') {
+          await synth.init(audioCtx);
+        } else if (typeof synth.initAudioContext === 'function') {
+          await synth.initAudioContext(audioCtx);
+        } else {
+          // Some builds auto-init on construction
+          console.log('FluidSynth instance may be auto-initialized (no init function)');
+        }
+
+        // Load SF2 bytes
+        const sf2Resp = await fetch('./my_custom.sf2'); // adapt filename/path
+        if (!sf2Resp.ok) throw new Error('Failed to fetch SF2: ' + sf2Resp.status);
+        const sf2buf = await sf2Resp.arrayBuffer();
+
+        if (typeof synth.loadSFont === 'function') {
+          await synth.loadSFont(new Uint8Array(sf2buf));
+        } else if (typeof synth.loadSoundfont === 'function') {
+          await synth.loadSoundfont(new Uint8Array(sf2buf));
+        } else if (typeof synth.load === 'function') {
+          await synth.load(new Uint8Array(sf2buf));
+        } else {
+          console.warn('No recognized load SF2 function found on synth instance. Inspect the API: ', synth);
+          throw new Error('Synth build does not expose a compatible load method. Adapt demo to your build.');
+        }
+
+        sfLoaded = true;
+        alert('Synth initialized and SF2 loaded. You can now press Play (if score is loaded).');
+
+        playBtn.disabled = !midiData;
+        initSynthBtn.disabled = true;
+      } catch (err) {
+        console.error('Synth init error:', err);
+        alert('Synth init error: ' + (err && err.message ? err.message : err));
+      }
+    }
+
+    // Playback scheduling using simple setTimeouts (not sample-accurate, but reliable for demo)
+    function schedulePlayback(startOffsetMs = 0) {
+      if (!midiData) {
+        alert('No MIDI data extracted from OSMD. Load a score first.');
+        return;
+      }
+      if (!synth || !sfLoaded) {
+        alert('Synth is not initialized or SF2 not loaded. Init synth first.');
+        return;
+      }
+
+      clearScheduled();
+      playbackStartRealTime = performance.now() - startOffsetMs;
+      playbackPaused = false;
+
+      // tempo factor: midiData may have been exported with original tempo; we apply a BPM multiplier:
+      const desiredBpm = parseInt(tempoRange.value, 10) || 120;
+      // Many OSMD MIDI times are in seconds already; some are in beats. We'll assume seconds.
+      // If your midiData uses ticks/beats, adapt to convert beats -> seconds using tempo.
+
+      // For each track, schedule note on / off
+      (midiData.tracks || []).forEach(track => {
+        (track.notes || []).forEach(note => {
+          // note.time and note.duration are expected in seconds in many OSMD backends.
+          const noteStartSec = (note.time || 0);
+          const noteDurSec = (note.duration || 0);
+
+          // convert to ms (apply tempo ratio if necessary)
+          const startMs = Math.max(0, (noteStartSec * 1000) - startOffsetMs);
+          const endMs = startMs + (noteDurSec * 1000);
+
+          // schedule note on
+          const onId = setTimeout(() => {
+            try {
+              // channel 0 used here
+              if (typeof synth.noteOn === 'function') {
+                synth.noteOn(0, note.midi, Math.max(1, Math.round((note.velocity || 0.8) * 127)));
+              } else if (typeof synth.note_on === 'function') {
+                // some builds use snake_case
+                synth.note_on(0, note.midi, Math.max(1, Math.round((note.velocity || 0.8) * 127)));
+              } else {
+                console.warn('Synth does not expose noteOn or note_on; check API', synth);
+              }
+            } catch (e) {
+              console.error('noteOn error', e);
+            }
+          }, startMs);
+
+          // schedule note off
+          const offId = setTimeout(() => {
+            try {
+              if (typeof synth.noteOff === 'function') {
+                synth.noteOff(0, note.midi);
+              } else if (typeof synth.note_off === 'function') {
+                synth.note_off(0, note.midi);
+              } else {
+                // fallback: some synths support noteOff with velocity param
+                if (typeof synth.noteoff === 'function') synth.noteoff(0, note.midi);
+              }
+            } catch (e) {
+              console.error('noteOff error', e);
+            }
+          }, endMs);
+
+          scheduledTimeouts.push(onId, offId);
+        });
+      });
+
+      // Optionally move cursor visually using OSMD cursor if available
+      try {
+        if (osmd && osmd.cursor && typeof osmd.cursor.show === 'function') osmd.cursor.show();
+      } catch (e) {}
+    }
+
+    function pausePlayback() {
+      if (playbackPaused) return;
+      // Compute elapsed ms relative to start
+      const now = performance.now();
+      elapsedWhenPaused = now - playbackStartRealTime;
+      clearScheduled();
+      playbackPaused = true;
+    }
+
+    function resumePlayback() {
+      if (!playbackPaused) return;
+      // start scheduling from elapsedWhenPaused
+      schedulePlayback(elapsedWhenPaused);
+    }
+
+    function stopPlayback() {
+      clearScheduled();
+      playbackStartRealTime = null;
+      elapsedWhenPaused = 0;
+      playbackPaused = false;
+      // reset cursor if available
+      try {
+        if (osmd && osmd.cursor && typeof osmd.cursor.reset === 'function') osmd.cursor.reset();
+      } catch (e) {}
+    }
+
+    // Hook up buttons
+    loadScoreBtn.addEventListener('click', async () => {
+      await loadScore();
+    });
+
+    initSynthBtn.addEventListener('click', async () => {
+      await initFluidSynth();
+    });
+
+    playBtn.addEventListener('click', async () => {
+      if (!synth || !sfLoaded) {
+        alert('Init synth first');
+        return;
+      }
+      // If paused, resume
+      if (playbackPaused) {
+        resumePlayback();
+      } else {
+        schedulePlayback(0);
+      }
+      playBtn.disabled = true;
+      pauseBtn.disabled = false;
+      stopBtn.disabled = false;
+    });
+
+    pauseBtn.addEventListener('click', async () => {
+      pausePlayback();
+      playBtn.disabled = false;
+      pauseBtn.disabled = true;
+      stopBtn.disabled = false;
+    });
+
+    stopBtn.addEventListener('click', async () => {
+      stopPlayback();
+      playBtn.disabled = false;
+      pauseBtn.disabled = true;
+      stopBtn.disabled = true;
+    });
+
+    // initialize osmd immediately (render button will fetch score)
+    initOsmd();
+  })();
+  </script>
+</body>
+</html>

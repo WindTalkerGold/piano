@@ -127,11 +127,50 @@ export default function PreviewPage() {
       };
 
       let audioPlayer: any;
+      let rafId: number | null = null;
+      let isPlaying = false;
       const tempoRange = document.getElementById('tempoRange') as HTMLInputElement | null;
       const tempoValue = document.getElementById('tempoValue');
       const playBtn = document.getElementById('playBtn');
       const pauseBtn = document.getElementById('pauseBtn');
       const stopBtn = document.getElementById('stopBtn');
+
+      const ensureCursorInView = () => {
+        const containerEl = osmdRef.current as HTMLElement | null;
+        if (!containerEl) return;
+        // OSMD cursor element can be an <image> with id like cursorImg-0
+        const cursorEl = (containerEl.querySelector('#cursorImg-0') as HTMLElement | null)
+          || (containerEl.querySelector('[id^="cursorImg"]') as HTMLElement | null);
+        //console.log('Cursor Element:', cursorEl);
+        if (!cursorEl) return;
+        const cRect = cursorEl.getBoundingClientRect();
+        const contRect = containerEl.getBoundingClientRect();
+        const topDiff = cRect.top - contRect.top;
+        const bottomDiff = cRect.bottom - contRect.bottom;
+        if (topDiff < 0) {
+          containerEl.scrollTop += topDiff - 40; // scroll up with margin
+        } else if (bottomDiff > 0) {
+          containerEl.scrollTop += bottomDiff + 40; // scroll down with margin
+        }
+      };
+
+      const startAutoScroll = () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        isPlaying = true;
+        const loop = () => {
+          if (isPlaying) ensureCursorInView();
+          rafId = requestAnimationFrame(loop);
+        };
+        rafId = requestAnimationFrame(loop);
+      };
+
+      const stopAutoScroll = () => {
+        isPlaying = false;
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      };
 
       const setEnabled = (play: boolean, pause: boolean, stop: boolean) => {
         if (playBtn) playBtn.toggleAttribute('disabled', !play);
@@ -227,6 +266,7 @@ export default function PreviewPage() {
               } catch {}
 
               await audioPlayer.play();
+              startAutoScroll();
               setEnabled(false, true, true);
             } catch (err) {
               console.error('Play failed:', err);
@@ -238,6 +278,7 @@ export default function PreviewPage() {
           pauseBtn.addEventListener('click', async () => {
             try {
               await audioPlayer.pause();
+              stopAutoScroll();
               setEnabled(true, false, true);
             } catch (err) { console.error(err); }
           });
@@ -247,6 +288,7 @@ export default function PreviewPage() {
           stopBtn.addEventListener('click', async () => {
             try {
               await audioPlayer.stop();
+              stopAutoScroll();
               osmd.cursor.reset();
               setEnabled(true, false, false);
             } catch (err) { console.error(err); }
