@@ -434,6 +434,38 @@ export default function PreviewPage() {
             This piece is stored locally in your library directory.
           </p>
 
+          {/* Instrument selection */}
+          <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-100 p-3">
+            <label className="block text-sm font-medium text-yellow-900 mb-1">Playback Instrument</label>
+            <div className="flex gap-2">
+              <select
+                defaultValue={piece.meta.instrument || 'piano'}
+                className="flex-1 rounded border border-yellow-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+                onChange={async (e) => {
+                  const selected = e.target.value as 'piano' | 'violin' | 'guitar' | 'flute' | 'drums';
+                  const res = await fetch('/api/library', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pieceId, instrument: selected })
+                  });
+                  if (res.ok) {
+                    setPiece({ ...piece!, meta: { ...piece!.meta, instrument: selected } });
+                    alert('Instrument updated');
+                  } else {
+                    const data = await res.json().catch(() => ({}));
+                    alert(`Instrument update failed: ${data.error || res.statusText}`);
+                  }
+                }}
+              >
+                <option value="piano">Piano</option>
+                <option value="violin">Violin</option>
+                <option value="guitar">Guitar</option>
+                <option value="flute">Flute</option>
+                <option value="drums">Drums</option>
+              </select>
+            </div>
+          </div>
+
           {/* Rename form */}
           <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-100 p-3">
             <label className="block text-sm font-medium text-yellow-900 mb-1">Edit Title</label>
