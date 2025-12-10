@@ -21,16 +21,38 @@ export async function PUT(request: NextRequest): Promise<NextResponse<{ success:
     if (!body || typeof body !== 'object') {
       return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
     }
-    const { pieceId, title } = body as { pieceId?: string; title?: string };
-    if (!pieceId || typeof title !== 'string' || title.trim() === '') {
-      return NextResponse.json({ success: false, error: 'pieceId and non-empty title are required' }, { status: 400 });
+
+    const { pieceId, title, tags } = body as { pieceId?: string; title?: string; tags?: string[] };
+    if (!pieceId) {
+      return NextResponse.json({ success: false, error: 'pieceId is required' }, { status: 400 });
     }
+
     const piece = await getPiece(pieceId);
     if (!piece) {
       return NextResponse.json({ success: false, error: `Piece ${pieceId} not found` }, { status: 404 });
     }
-    // Update metadata title
-    await updateMetadata(pieceId, { title: title.trim() });
+
+    const updates: Partial<Piece['meta']> = {} as any;
+
+    if (typeof title === 'string') {
+      const t = title.trim();
+      if (t.length === 0) {
+        return NextResponse.json({ success: false, error: 'title cannot be empty' }, { status: 400 });
+      }
+      (updates as any).title = t;
+    }
+
+    if (Array.isArray(tags)) {
+      // Normalize: trim, remove empties, dedupe
+      const normalized = Array.from(new Set(tags.map((x) => (typeof x === 'string' ? x.trim() : '')).filter((x) => x.length > 0)));
+      (updates as any).tags = normalized;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ success: false, error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    await updateMetadata(pieceId, updates as any);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error updating piece:', error);

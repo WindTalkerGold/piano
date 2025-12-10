@@ -212,12 +212,14 @@ export default function LibraryPage() {
                   {piece.meta.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {piece.meta.tags.map((tag) => (
-                        <span
+                        <button
                           key={tag}
-                          className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700"
+                          className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 hover:bg-gray-200"
+                          onClick={() => setSearchQuery(tag)}
+                          title={`Filter by tag: ${tag}`}
                         >
                           {tag}
-                        </span>
+                        </button>
                       ))}
                     </div>
                   )}
