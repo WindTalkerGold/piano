@@ -23,6 +23,21 @@ export default function PreviewPage() {
     fetchPiece();
   }, [pieceId]);
 
+  // Ensure instrument default is present in state and persisted
+  useEffect(() => {
+    if (!piece) return;
+    if (!piece.meta.instrument) {
+      const updated = { ...piece, meta: { ...piece.meta, instrument: 'piano' } };
+      setPiece(updated);
+      // Persist default in background
+      fetch('/api/library', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pieceId, instrument: 'piano' })
+      }).catch(() => {});
+    }
+  }, [piece, pieceId]);
+
 
   // Detect mobile device
   useEffect(() => {
@@ -65,7 +80,7 @@ export default function PreviewPage() {
 
   // Initialize OSMD and audio controls
   useEffect(() => {
-    if (!pieceId) return;
+    if (!pieceId || !piece) return;
 
     let cancelled = false;
 
@@ -158,6 +173,9 @@ export default function PreviewPage() {
 
               // Load instrument-specific soundfont (POC: piano, violin, guitar)
               const instr = (piece?.meta as any)?.instrument || 'piano';
+              if (!instr) {
+                console.warn('Instrument missing, defaulting to piano');
+              }
               const sf2 = await loadSoundfont(instr);
               const ap: any = audioPlayer;
               if (sf2 && typeof ap.loadSoundfontArrayBuffer === 'function') {
