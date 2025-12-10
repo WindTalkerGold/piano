@@ -335,15 +335,91 @@ export default function PreviewPage() {
 
         <div className="rounded-xl border bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-xl font-semibold">Tags</h2>
+
+          {/* Add tag input */}
+          <div className="mb-3 flex gap-2">
+            <input
+              id="newTagInput"
+              placeholder="Add a tag and press Enter"
+              className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  const input = e.currentTarget as HTMLInputElement;
+                  const raw = input.value;
+                  const t = raw.trim();
+                  if (!t) return;
+                  const nextTags = Array.from(new Set([...(piece?.meta.tags || []), t]));
+                  const res = await fetch('/api/library', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pieceId, tags: nextTags })
+                  });
+                  if (res.ok) {
+                    setPiece({ ...piece!, meta: { ...piece!.meta, tags: nextTags } });
+                    input.value = '';
+                  } else {
+                    const data = await res.json().catch(() => ({}));
+                    alert(`Add tag failed: ${data.error || res.statusText}`);
+                  }
+                }
+              }}
+            />
+            <button
+              onClick={async () => {
+                const input = document.getElementById('newTagInput') as HTMLInputElement | null;
+                const raw = input?.value || '';
+                const t = raw.trim();
+                if (!t) return;
+                const nextTags = Array.from(new Set([...(piece?.meta.tags || []), t]));
+                const res = await fetch('/api/library', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ pieceId, tags: nextTags })
+                });
+                if (res.ok) {
+                  setPiece({ ...piece!, meta: { ...piece!.meta, tags: nextTags } });
+                  if (input) input.value = '';
+                } else {
+                  const data = await res.json().catch(() => ({}));
+                  alert(`Add tag failed: ${data.error || res.statusText}`);
+                }
+              }}
+              className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Add
+            </button>
+          </div>
+
+          {/* Existing tags with remove buttons */}
           {piece.meta.tags.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {piece.meta.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
+                  className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
                 >
-                  <Tag className="mr-1 inline h-3 w-3" />
+                  <Tag className="inline h-3 w-3" />
                   {tag}
+                  <button
+                    aria-label={`Remove tag ${tag}`}
+                    className="ml-1 rounded bg-gray-200 px-1 text-xs hover:bg-gray-300"
+                    onClick={async () => {
+                      const nextTags = (piece?.meta.tags || []).filter((t) => t !== tag);
+                      const res = await fetch('/api/library', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pieceId, tags: nextTags })
+                      });
+                      if (res.ok) {
+                        setPiece({ ...piece!, meta: { ...piece!.meta, tags: nextTags } });
+                      } else {
+                        const data = await res.json().catch(() => ({}));
+                        alert(`Remove tag failed: ${data.error || res.statusText}`);
+                      }
+                    }}
+                  >
+                    ×
+                  </button>
                 </span>
               ))}
             </div>
