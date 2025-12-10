@@ -51,3 +51,4 @@ Thumbs.db
 
 # Library directory (user data)
 /library/
+/public/sf/*.sf2

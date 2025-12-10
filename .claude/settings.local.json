@@ -27,7 +27,8 @@
       "mcp__chrome-devtools__list_network_requests",
       "mcp__chrome-devtools__get_console_message",
       "Bash(git rev-parse:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

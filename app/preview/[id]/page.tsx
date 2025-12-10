@@ -80,7 +80,7 @@ export default function PreviewPage() {
 
   // Initialize OSMD and audio controls
   useEffect(() => {
-    if (!pieceId || !piece) return;
+    if (!pieceId) return;
 
     let cancelled = false;
 
