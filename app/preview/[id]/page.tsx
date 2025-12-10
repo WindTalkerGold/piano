@@ -23,6 +23,21 @@ export default function PreviewPage() {
     fetchPiece();
   }, [pieceId]);
 
+  // Ensure instrument default is present in state and persisted
+  useEffect(() => {
+    if (!piece) return;
+    if (!piece.meta.instrument) {
+      const updated = { ...piece, meta: { ...piece.meta, instrument: 'piano' } };
+      setPiece(updated);
+      // Persist default in background
+      fetch('/api/library', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pieceId, instrument: 'piano' })
+      }).catch(() => {});
+    }
+  }, [piece, pieceId]);
+
 
   // Detect mobile device
   useEffect(() => {
@@ -88,6 +103,29 @@ export default function PreviewPage() {
         drawComposer: true,
       });
 
+      // Helper: resolve soundfont URL by instrument
+      const sfUrlForInstrument = (instr: string) => {
+        const map: Record<string, string> = {
+          piano: '/sf/piano.sf2',
+          violin: '/sf/violin.sf2',
+          guitar: '/sf/guitar.sf2',
+        };
+        return map[instr] || map['piano'];
+      };
+
+      // Fetch soundfont as ArrayBuffer
+      const loadSoundfont = async (instr: string) => {
+        const url = sfUrlForInstrument(instr);
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error(`Soundfont fetch failed: ${resp.status}`);
+          return await resp.arrayBuffer();
+        } catch (e) {
+          console.warn('Failed to load soundfont, falling back to default:', e);
+          return null;
+        }
+      };
+
       let audioPlayer: any;
       const tempoRange = document.getElementById('tempoRange') as HTMLInputElement | null;
       const tempoValue = document.getElementById('tempoValue');
@@ -132,6 +170,19 @@ export default function PreviewPage() {
           if (typeof audioPlayer.loadScore === 'function') {
             try {
               await audioPlayer.loadScore(osmd);
+
+              // Load instrument-specific soundfont (POC: piano, violin, guitar)
+              const instr = 'piano';
+              const sf2 = await loadSoundfont(instr);
+              const ap: any = audioPlayer;
+              if (sf2 && typeof ap.loadSoundfontArrayBuffer === 'function') {
+                try {
+                  await ap.loadSoundfontArrayBuffer(sf2);
+                  console.log(`Loaded soundfont for instrument: ${instr}`);
+                } catch (sfErr) {
+                  console.warn('Failed to initialize soundfont:', sfErr);
+                }
+              }
             } catch (e) {
               console.error('Audio player failed to load score:', e);
             }
@@ -433,6 +484,18 @@ export default function PreviewPage() {
           <p className="mb-4 text-sm text-yellow-700">
             This piece is stored locally in your library directory.
           </p>
+
+          {/* Instrument selection (disabled) */}
+          <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-100 p-3 opacity-60">
+            <label className="block text-sm font-medium text-yellow-900 mb-1">Playback Instrument (fixed to Piano)</label>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value="Piano"
+                className="flex-1 rounded border border-yellow-300 bg-white px-3 py-2 text-sm text-gray-900"
+              />
+            </div>
+          </div>
 
           {/* Rename form */}
           <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-100 p-3">

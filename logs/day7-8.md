@@ -26,6 +26,8 @@ Claude Code（此时我已经用上了号称最能打的Opus 4.5模型）进行�
 
 仔细检查css样式后，我发现了问题之所在：项目中使用了Tailwind CSS，在其基础样式（`Preflight`）中，为了保持响应式，为所有 `img` 等元素设置了 `max-width: 100%` 和 `height: auto`。而OSMD内部使用SVG和Canvas渲染，其复杂的嵌套元素也应用了自身的尺寸控制。这两套规则的**意外叠加**，导致承载光标的容器元素被计算为仅有1像素高，从而让光标“消失”了。
 
+![attr2](./problematic-attribute.png)
+
 这是一个极其细微且情境化的前端问题，AI几乎不可能从代码逻辑中直接推理出来。
 
 发现问题之后让AI去解决就很容易了，它很快找到了一个解决方案，强制撤销了Tailwind CSS的 `height: auto` 样式。

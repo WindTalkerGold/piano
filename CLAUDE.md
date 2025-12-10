@@ -98,3 +98,11 @@ When adding or updating endpoints, align with local-first and file-based metadat
 - To add a new file type: extend storage.ts paths, converter.ts handling, and download/preview logic accordingly
 
 Refer to README.md and init.md for user-facing details. Keep this file concise and focused on how Claude Code should work within this repository.
+
+## Dev practice
+
+After you (Claude Code) create a feature and accepted by me, I will ask you to commit and push it. Then I will create PR and get it merged to main branch. Then, you should
+1. Check out to main branch
+2. pull latest
+3. delete previous dev branch
+4. create a new branch to continue development (ask me about the branch name)

@@ -7,6 +7,8 @@ export interface MetaData {
   uploadedAt: string;
   /** Tags for searching */
   tags: string[];
+  /** Playback instrument (per piece) */
+  instrument?: 'piano' | 'violin' | 'guitar' | 'flute' | 'drums';
   /** Optional description */
   description?: string;
 }

@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse<{ success:
       return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const { pieceId, title, tags } = body as { pieceId?: string; title?: string; tags?: string[] };
+    const { pieceId, title, tags, instrument } = body as { pieceId?: string; title?: string; tags?: string[]; instrument?: 'piano' | 'violin' | 'guitar' | 'flute' | 'drums' };
     if (!pieceId) {
       return NextResponse.json({ success: false, error: 'pieceId is required' }, { status: 400 });
     }
@@ -46,6 +46,14 @@ export async function PUT(request: NextRequest): Promise<NextResponse<{ success:
       // Normalize: trim, remove empties, dedupe
       const normalized = Array.from(new Set(tags.map((x) => (typeof x === 'string' ? x.trim() : '')).filter((x) => x.length > 0)));
       (updates as any).tags = normalized;
+    }
+
+    if (instrument) {
+      const allowed = ['piano','violin','guitar','flute','drums'] as const;
+      if (!allowed.includes(instrument)) {
+        return NextResponse.json({ success: false, error: 'Invalid instrument' }, { status: 400 });
+      }
+      (updates as any).instrument = instrument;
     }
 
     if (Object.keys(updates).length === 0) {

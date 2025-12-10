@@ -14,6 +14,7 @@ export function createDefaultMetadata(originalName: string): MetaData {
     title,
     uploadedAt: now,
     tags: [],
+    instrument: 'piano',
   };
 }
 
@@ -56,5 +57,6 @@ export function updateMetadata(current: MetaData, updates: Partial<MetaData>): M
     ...current,
     ...updates,
     tags: updates.tags ?? current.tags,
+    instrument: updates.instrument ?? current.instrument,
   };
 }
