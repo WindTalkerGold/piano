@@ -15,13 +15,14 @@ export default function UploadPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.name.toLowerCase().endsWith('.mid') ||
-          selectedFile.name.toLowerCase().endsWith('.midi') ||
-          selectedFile.name.toLowerCase().endsWith('.mxl')) {
+      const lower = selectedFile.name.toLowerCase();
+      const isMidiOrMxl = lower.endsWith('.mid') || lower.endsWith('.midi') || lower.endsWith('.mxl');
+      const isImage = lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg');
+      if (isMidiOrMxl || isImage) {
         setFile(selectedFile);
         setUploadResult(null);
       } else {
-        alert('Please select a MIDI or MXL file (.mid, .midi, or .mxl)');
+        alert('Please select a MIDI/MXL file (.mid, .midi, .mxl) or an image (.png, .jpg)');
         e.target.value = '';
       }
     }
@@ -44,7 +45,7 @@ export default function UploadPage() {
       setFile(droppedFile);
       setUploadResult(null);
     } else {
-      alert('Please drop a MIDI or MXL file (.mid, .midi, or .mxl)');
+      alert('Please drop a MIDI/MXL file (.mid, .midi, .mxl) or an image (.png, .jpg)');
     }
   };
 
@@ -52,14 +53,17 @@ export default function UploadPage() {
     e.preventDefault();
     if (!file) return;
 
+    const isImage = file.name.toLowerCase().endsWith('.png') || file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
+
     setUploading(true);
     setUploadResult(null);
 
     const formData = new FormData();
-    formData.append('midi', file);
+    const endpoint = isImage ? '/api/omr' : '/api/upload';
+    formData.append(isImage ? 'image' : 'midi', file);
 
     try {
-      const response = await fetch('/api/upload', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
@@ -95,9 +99,9 @@ export default function UploadPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900">Upload MIDI/MXL File</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Upload File</h1>
         <p className="mt-2 text-gray-600">
-          Upload a MIDI or MXL file to convert it to sheet music (MXL and PDF formats)
+          Upload a MIDI/MXL file, or an image (PNG/JPG) if Audiveris is configured
         </p>
       </div>
 
@@ -120,7 +124,7 @@ export default function UploadPage() {
             <input
               id="file-input"
               type="file"
-              accept=".mid,.midi,.mxl"
+              accept=".mid,.midi,.mxl,image/png,image/jpeg"
               onChange={handleFileChange}
               className="hidden"
             />

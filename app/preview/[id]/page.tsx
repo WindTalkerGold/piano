@@ -399,13 +399,15 @@ export default function PreviewPage() {
               <div>
                 <p className="font-medium">File Formats</p>
                 <div className="mt-1 flex flex-wrap gap-2">
-                  <a
-                    href={`/api/download?pieceId=${pieceId}&type=mid&download=true`}
-                    className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200"
-                    download
-                  >
-                    MIDI
-                  </a>
+                  {process.env.NEXT_PUBLIC_MUSESCORE_ENABLED !== 'false' && (
+                    <a
+                      href={`/api/download?pieceId=${pieceId}&type=mid&download=true`}
+                      className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200"
+                      download
+                    >
+                      MIDI
+                    </a>
+                  )}
                   <a
                     href={`/api/mxl/${encodeURIComponent(pieceId)}.mxl`}
                     className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-200"
@@ -413,13 +415,15 @@ export default function PreviewPage() {
                   >
                     MXL
                   </a>
-                  <a
-                    href={`/api/download?pieceId=${pieceId}&type=pdf&download=true`}
-                    className="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700 hover:bg-purple-200"
-                    download
-                  >
-                    PDF
-                  </a>
+                  {process.env.NEXT_PUBLIC_MUSESCORE_ENABLED !== 'false' && (
+                    <a
+                      href={`/api/download?pieceId=${pieceId}&type=pdf&download=true`}
+                      className="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700 hover:bg-purple-200"
+                      download
+                    >
+                      PDF
+                    </a>
+                  )}
                 </div>
               </div>
             </div>

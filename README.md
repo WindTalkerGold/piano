@@ -9,6 +9,7 @@ A local-first web application for piano enthusiasts to upload MIDI or MXL files,
 - **Library Management**: Browse, search, and organize your sheet music collection
 - **PDF Preview**: View sheet music directly in the browser
 - **File Downloads**: Download PDF and MXL files
+- **Image OMR (Audiveris)**: Upload PNG/JPG images and convert to MusicXML when Audiveris is configured
 - **Local Storage**: All files stored locally with JSON metadata
 - **No Database**: File-based storage, no external dependencies
 
@@ -63,6 +64,12 @@ Create `.env.local` file with the following:
 MUSESCORE_PATH="C:\Program Files\MuseScore 4\bin\MuseScore4.exe"  # Windows
 # MUSESCORE_PATH="mscore"  # Linux/macOS
 
+# Audiveris OMR executable path (enables image OMR upload)
+AUDIVERIS_PATH="C:\Program Files\Audiveris\Audiveris.exe"  # Windows
+
+# Expose MuseScore availability to client (controls PDF/MIDI buttons)
+NEXT_PUBLIC_MUSESCORE_ENABLED=true
+
 # Library storage directory (relative to project root)
 LIBRARY_PATH="./library"
 
@@ -98,16 +105,19 @@ midi-library-manager/
 
 ## Usage
 
-### Uploading MIDI/MXL Files
+### Uploading MIDI/MXL Files and Images (OMR)
 
 1. Navigate to `/upload`
-2. Drag & drop or select a `.mid`/`.midi` or `.mxl` file
+2. Drag & drop or select a `.mid`/`.midi` or `.mxl` file, or an image (`.png`/`.jpg`) if Audiveris is configured
 3. Click "Upload & Convert"
 4. System will:
-   - Save the uploaded file (MIDI or MXL)
-   - If MIDI file, convert to MXL using MuseScore
-   - Convert MXL to PDF using MuseScore
-   - Optionally convert MXL to MIDI
+   - For images: invoke Audiveris in batch mode to produce MusicXML (MXL/XML)
+   - Save files under a new UUID piece directory
+   - If MuseScore is available:
+     - For MIDI: convert to MXL then to PDF, and optionally to MIDI
+     - For MXL: convert to PDF and optionally to MIDI
+     - For OMR output (MXL/XML): convert to PDF and optionally to MIDI
+   - If MuseScore is not available: keep MXL/XML only; PDF/MIDI downloads are disabled
    - Create metadata file
    - Redirect to library
 
