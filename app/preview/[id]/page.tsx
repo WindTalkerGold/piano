@@ -18,6 +18,8 @@ export default function PreviewPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
   const osmdRef = useRef<HTMLDivElement | null>(null);
+  const audioPlayerRef = useRef<any>(null);
+  const osmdInstanceRef = useRef<any>(null);
 
   useEffect(() => {
     fetchPiece();
@@ -27,7 +29,7 @@ export default function PreviewPage() {
   useEffect(() => {
     if (!piece) return;
     if (!piece.meta.instrument) {
-      const updated = { ...piece, meta: { ...piece.meta, instrument: 'piano' } };
+      const updated = { ...piece, meta: { ...piece.meta, instrument: 'piano' as 'piano' } };
       setPiece(updated);
       // Persist default in background
       fetch('/api/library', {
@@ -102,6 +104,7 @@ export default function PreviewPage() {
         drawTitle: true,
         drawComposer: true,
       });
+      osmdInstanceRef.current = osmd;
 
       // Helper: resolve soundfont URL by instrument
       const sfUrlForInstrument = (instr: string) => {
@@ -134,6 +137,10 @@ export default function PreviewPage() {
       const playBtn = document.getElementById('playBtn');
       const pauseBtn = document.getElementById('pauseBtn');
       const stopBtn = document.getElementById('stopBtn');
+      const prevMeasureBtn = document.getElementById('prevMeasureBtn');
+      const nextMeasureBtn = document.getElementById('nextMeasureBtn');
+      const backwardBtn = document.getElementById('backwardBtn');
+      const forwardBtn = document.getElementById('forwardBtn');
 
       const ensureCursorInView = () => {
         const containerEl = osmdRef.current as HTMLElement | null;
@@ -178,6 +185,13 @@ export default function PreviewPage() {
         if (stopBtn) stopBtn.toggleAttribute('disabled', !stop);
       };
 
+      const setNavEnabled = (enabled: boolean) => {
+        if (prevMeasureBtn) prevMeasureBtn.toggleAttribute('disabled', !enabled);
+        if (nextMeasureBtn) nextMeasureBtn.toggleAttribute('disabled', !enabled);
+        if (backwardBtn) backwardBtn.toggleAttribute('disabled', !enabled);
+        if (forwardBtn) forwardBtn.toggleAttribute('disabled', !enabled);
+      };
+
       const SCORE_URL = `/api/mxl/${encodeURIComponent(pieceId)}.mxl`;
 
       (async () => {
@@ -202,9 +216,11 @@ export default function PreviewPage() {
         osmd.cursor.show();
         osmd.cursor.reset();
         setEnabled(true, false, false);
+        setNavEnabled(true);
 
         if (OsmdAudioPlayer) {
           audioPlayer = new OsmdAudioPlayer();
+          audioPlayerRef.current = audioPlayer;
           // Preload score into audio player so Play works immediately
           if (typeof audioPlayer.loadScore === 'function') {
             try {
@@ -226,7 +242,7 @@ export default function PreviewPage() {
               console.error('Audio player failed to load score:', e);
             }
           }
-        }
+        }       
 
         if (tempoRange && tempoValue) {
           tempoRange.addEventListener('input', () => {
@@ -243,6 +259,7 @@ export default function PreviewPage() {
             try {
               if (!audioPlayer) {
                 audioPlayer = new OsmdAudioPlayer();
+                audioPlayerRef.current = audioPlayer;
                 if (typeof audioPlayer.loadScore === 'function') {
                   await audioPlayer.loadScore(osmd);
                 }
@@ -294,6 +311,47 @@ export default function PreviewPage() {
             } catch (err) { console.error(err); }
           });
         }
+
+        if (forwardBtn) {
+          forwardBtn.addEventListener('click', () => {
+            try {
+              osmd.cursor.show();
+              osmd.cursor.next();
+              ensureCursorInView();
+            } catch (err) { console.error(err); }
+          });
+        }
+
+        if (backwardBtn) {
+          backwardBtn.addEventListener('click', () => {
+            try {
+              osmd.cursor.show();
+              osmd.cursor.previous();
+              ensureCursorInView();
+            } catch (err) { console.error(err); }
+          });
+        }
+
+        if (nextMeasureBtn) {
+          nextMeasureBtn.addEventListener('click', () => {
+            try {
+              osmd.cursor.show();
+              osmd.cursor.nextMeasure();
+              ensureCursorInView();
+            } catch (err) { console.error(err); }
+          });
+        }
+
+        if (prevMeasureBtn) {
+          prevMeasureBtn.addEventListener('click', () => {
+            try {
+              osmd.cursor.show();
+              osmd.cursor.previousMeasure();
+              ensureCursorInView();
+            } catch (err) { console.error(err); }
+          });
+        }
+
       })();
     };
 
@@ -375,6 +433,11 @@ export default function PreviewPage() {
             <button id="playBtn" className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:text-white disabled:cursor-not-allowed disabled:opacity-60">Play</button>
             <button id="pauseBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Pause</button>
             <button id="stopBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Stop</button>
+            <span className="h-6 w-px bg-gray-300"></span>
+            <button id="prevMeasureBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>← Measure</button>
+            <button id="nextMeasureBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Measure →</button>
+            <button id="backwardBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>← Step</button>
+            <button id="forwardBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Step →</button>
           </div>
         </div>
         <div className="h-[700px] rounded-lg border relative">
