@@ -141,6 +141,8 @@ export default function PreviewPage() {
       const nextMeasureBtn = document.getElementById('nextMeasureBtn');
       const backwardBtn = document.getElementById('backwardBtn');
       const forwardBtn = document.getElementById('forwardBtn');
+      const nextLineBtn = document.getElementById('nextLineBtn');
+      const prevLineBtn = document.getElementById('prevLineBtn');
 
       const ensureCursorInView = () => {
         const containerEl = osmdRef.current as HTMLElement | null;
@@ -190,6 +192,8 @@ export default function PreviewPage() {
         if (nextMeasureBtn) nextMeasureBtn.toggleAttribute('disabled', !enabled);
         if (backwardBtn) backwardBtn.toggleAttribute('disabled', !enabled);
         if (forwardBtn) forwardBtn.toggleAttribute('disabled', !enabled);
+        if (prevLineBtn) prevLineBtn.toggleAttribute('disabled', !enabled);
+        if (nextLineBtn) nextLineBtn.toggleAttribute('disabled', !enabled);
       };
 
       const SCORE_URL = `/api/mxl/${encodeURIComponent(pieceId)}.mxl`;
@@ -352,6 +356,157 @@ export default function PreviewPage() {
           });
         }
 
+        // Get cursor position helper
+        const getCursorPosition = () => {
+          const containerEl = osmdRef.current as HTMLElement | null;
+          if (!containerEl) return null;
+          
+          // OSMD cursor element can be an <image> with id like cursorImg-0
+          const cursorEl = (containerEl.querySelector('#cursorImg-0') as HTMLElement | null)
+            || (containerEl.querySelector('[id^="cursorImg"]') as HTMLElement | null);
+          
+          if (!cursorEl) return null;
+          
+          const cRect = cursorEl.getBoundingClientRect();
+          const contRect = containerEl.getBoundingClientRect();
+          
+          return {
+            x: cRect.left - contRect.left,
+            y: cRect.top - contRect.top,
+            width: cRect.width,
+            height: cRect.height
+          };
+        };
+
+        // Move to next line function
+        const moveToNextLine = () => {
+          try {
+            const initialPos = getCursorPosition();
+            if (!initialPos) return;
+            
+            // Try moving to next measure multiple times to cross a line
+            let lastY = initialPos.y;
+            let iterations = 0;
+            const maxIterations = 50; // Prevent infinite loop
+            
+            while (iterations < maxIterations) {
+              const beforeMovePos = getCursorPosition();
+              if (!beforeMovePos) break;
+              
+              // Move to next measure
+              osmd.cursor.nextMeasure();
+              
+              const afterMovePos = getCursorPosition();
+              if (!afterMovePos) break;
+              
+              // Check if we've moved to a different line (Y position changed significantly)
+              if (Math.abs(afterMovePos.y - lastY) > afterMovePos.height) {
+                // We've crossed a line, now adjust to the beginning of the line
+                // Move back slightly to ensure we're properly positioned
+                break;
+              }
+              
+              // Check if we've reached the end (X position didn't change or barely changed)
+              if (Math.abs(afterMovePos.x - beforeMovePos.x) < afterMovePos.width) {
+                // Likely at the end, can't move further
+                break;
+              }
+              
+              lastY = afterMovePos.y;
+              iterations++;
+            }
+            
+            // Sync audio player position with cursor
+            if (audioPlayer) {
+              try {
+                // Some versions of OsmdAudioPlayer expose cursor helpers
+                if (typeof (audioPlayer as any).enableCursor === 'function') {
+                  (audioPlayer as any).enableCursor(true);
+                }
+                if (audioPlayer && (audioPlayer as any).cursor && typeof (audioPlayer as any).cursor.show === 'function') {
+                  (audioPlayer as any).cursor.show();
+                }
+              } catch (e) {
+                console.warn('Could not sync audio player cursor:', e);
+              }
+            }
+          } catch (err) {
+            console.error('Error moving to next line:', err);
+          }
+        };
+
+        // Move to previous line function
+        const moveToPrevLine = () => {
+          try {
+            const initialPos = getCursorPosition();
+            if (!initialPos) return;
+            
+            // Try moving to previous measure multiple times to cross a line
+            let lastY = initialPos.y;
+            let iterations = 0;
+            const maxIterations = 50; // Prevent infinite loop
+            
+            while (iterations < maxIterations) {
+              const beforeMovePos = getCursorPosition();
+              if (!beforeMovePos) break;
+              
+              // Move to previous measure
+              osmd.cursor.previousMeasure();
+              
+              const afterMovePos = getCursorPosition();
+              if (!afterMovePos) break;
+              
+              // Check if we've moved to a different line (Y position changed significantly)
+              if (Math.abs(afterMovePos.y - lastY) > afterMovePos.height) {
+                // We've crossed a line, adjust positioning
+                break;
+              }
+              
+              // Check if we've reached the beginning (X position didn't change or barely changed)
+              if (Math.abs(afterMovePos.x - beforeMovePos.x) < afterMovePos.width) {
+                // Likely at the beginning, can't move further
+                break;
+              }
+              
+              lastY = afterMovePos.y;
+              iterations++;
+            }
+            
+            // Sync audio player position with cursor
+            if (audioPlayer) {
+              try {
+                // Some versions of OsmdAudioPlayer expose cursor helpers
+                if (typeof (audioPlayer as any).enableCursor === 'function') {
+                  (audioPlayer as any).enableCursor(true);
+                }
+                if (audioPlayer && (audioPlayer as any).cursor && typeof (audioPlayer as any).cursor.show === 'function') {
+                  (audioPlayer as any).cursor.show();
+                }
+              } catch (e) {
+                console.warn('Could not sync audio player cursor:', e);
+              }
+            }
+          } catch (err) {
+            console.error('Error moving to previous line:', err);
+          }
+        };
+
+        // Add event listeners for line navigation buttons
+        if (nextLineBtn) {
+          nextLineBtn.addEventListener('click', () => {
+            osmd.cursor.show();
+            moveToNextLine();
+            ensureCursorInView();
+          });
+        }
+
+        if (prevLineBtn) {
+          prevLineBtn.addEventListener('click', () => {
+            osmd.cursor.show();
+            moveToPrevLine();
+            ensureCursorInView();
+          });
+        }
       })();
     };
 
@@ -438,6 +593,9 @@ export default function PreviewPage() {
             <button id="nextMeasureBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Measure →</button>
             <button id="backwardBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>← Step</button>
             <button id="forwardBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Step →</button>
+            <span className="h-6 w-px bg-gray-300"></span>
+            <button id="prevLineBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>↑ Line</button>
+            <button id="nextLineBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>↓ Line</button>
           </div>
         </div>
         <div className="h-[700px] rounded-lg border relative">
@@ -532,10 +690,10 @@ export default function PreviewPage() {
                 if (!t) return;
                 const nextTags = Array.from(new Set([...(piece?.meta.tags || []), t]));
                 const res = await fetch('/api/library', {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ pieceId, tags: nextTags })
-                });
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pieceId, tags: nextTags })
+                  });
                 if (res.ok) {
                   setPiece({ ...piece!, meta: { ...piece!.meta, tags: nextTags } });
                   if (input) input.value = '';
