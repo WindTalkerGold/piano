@@ -17,17 +17,25 @@ export default function PreviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
+  const [reseekStep, setReseekStep] = useState(false);
+  const reseekStepRef = useRef(false);
   const osmdRef = useRef<HTMLDivElement | null>(null);
+  const audioPlayerRef = useRef<any>(null);
+  const osmdInstanceRef = useRef<any>(null);
 
   useEffect(() => {
     fetchPiece();
   }, [pieceId]);
 
+  useEffect(() => {
+  reseekStepRef.current = reseekStep;
+}, [reseekStep]); // 每当 reseekStep 改变，就更新 ref
+
   // Ensure instrument default is present in state and persisted
   useEffect(() => {
     if (!piece) return;
     if (!piece.meta.instrument) {
-      const updated = { ...piece, meta: { ...piece.meta, instrument: 'piano' } };
+      const updated = { ...piece, meta: { ...piece.meta, instrument: 'piano' as 'piano' } };
       setPiece(updated);
       // Persist default in background
       fetch('/api/library', {
@@ -102,6 +110,7 @@ export default function PreviewPage() {
         drawTitle: true,
         drawComposer: true,
       });
+      osmdInstanceRef.current = osmd;
 
       // Helper: resolve soundfont URL by instrument
       const sfUrlForInstrument = (instr: string) => {
@@ -134,6 +143,8 @@ export default function PreviewPage() {
       const playBtn = document.getElementById('playBtn');
       const pauseBtn = document.getElementById('pauseBtn');
       const stopBtn = document.getElementById('stopBtn');
+      const prevMeasureBtn = document.getElementById('prevMeasureBtn');
+      const nextMeasureBtn = document.getElementById('nextMeasureBtn');
 
       const ensureCursorInView = () => {
         const containerEl = osmdRef.current as HTMLElement | null;
@@ -141,7 +152,7 @@ export default function PreviewPage() {
         // OSMD cursor element can be an <image> with id like cursorImg-0
         const cursorEl = (containerEl.querySelector('#cursorImg-0') as HTMLElement | null)
           || (containerEl.querySelector('[id^="cursorImg"]') as HTMLElement | null);
-        //console.log('Cursor Element:', cursorEl);
+
         if (!cursorEl) return;
         const cRect = cursorEl.getBoundingClientRect();
         const contRect = containerEl.getBoundingClientRect();
@@ -176,6 +187,13 @@ export default function PreviewPage() {
         if (playBtn) playBtn.toggleAttribute('disabled', !play);
         if (pauseBtn) pauseBtn.toggleAttribute('disabled', !pause);
         if (stopBtn) stopBtn.toggleAttribute('disabled', !stop);
+
+        setNavEnabled(play);
+      };
+
+      const setNavEnabled = (enabled: boolean) => {
+        if (prevMeasureBtn) prevMeasureBtn.toggleAttribute('disabled', !enabled);
+        if (nextMeasureBtn) nextMeasureBtn.toggleAttribute('disabled', !enabled);
       };
 
       const SCORE_URL = `/api/mxl/${encodeURIComponent(pieceId)}.mxl`;
@@ -202,9 +220,11 @@ export default function PreviewPage() {
         osmd.cursor.show();
         osmd.cursor.reset();
         setEnabled(true, false, false);
+        setNavEnabled(true);
 
         if (OsmdAudioPlayer) {
           audioPlayer = new OsmdAudioPlayer();
+          audioPlayerRef.current = audioPlayer;
           // Preload score into audio player so Play works immediately
           if (typeof audioPlayer.loadScore === 'function') {
             try {
@@ -226,7 +246,7 @@ export default function PreviewPage() {
               console.error('Audio player failed to load score:', e);
             }
           }
-        }
+        }       
 
         if (tempoRange && tempoValue) {
           tempoRange.addEventListener('input', () => {
@@ -243,6 +263,7 @@ export default function PreviewPage() {
             try {
               if (!audioPlayer) {
                 audioPlayer = new OsmdAudioPlayer();
+                audioPlayerRef.current = audioPlayer;
                 if (typeof audioPlayer.loadScore === 'function') {
                   await audioPlayer.loadScore(osmd);
                 }
@@ -265,6 +286,20 @@ export default function PreviewPage() {
                 }
               } catch {}
 
+              // 
+              if(reseekStepRef.current) {
+                // seek step
+                const measureLength: number[] = osmd.Sheet.SourceMeasures.map(
+                  m => m.VerticalSourceStaffEntryContainers.length);
+                const currentMeasure = osmd.cursor.Iterator.CurrentMeasureIndex;
+                const currentStepInMeasure = ((osmd.cursor.Iterator) as any).currentVoiceEntryIndex;
+                let step = currentStepInMeasure;
+                for(let i = 0; i < currentMeasure; i++) {
+                  step += measureLength[i];
+                }
+                audioPlayer.jumpToStep(step);
+                setReseekStep(false);
+              }
               await audioPlayer.play();
               startAutoScroll();
               setEnabled(false, true, true);
@@ -294,6 +329,35 @@ export default function PreviewPage() {
             } catch (err) { console.error(err); }
           });
         }
+
+
+
+        if (nextMeasureBtn) {
+          nextMeasureBtn.addEventListener('click', () => {
+            try {
+              osmd.cursor.show();
+              osmd.cursor.nextMeasure();
+              if(!reseekStepRef.current) 
+                setReseekStep(true);
+              ensureCursorInView();
+            } catch (err) { console.error(err); }
+          });
+        }
+
+        if (prevMeasureBtn) {
+          prevMeasureBtn.addEventListener('click', () => {
+            try {
+              osmd.cursor.show();
+              osmd.cursor.previousMeasure();
+              if(!reseekStepRef.current) 
+                setReseekStep(true);
+              ensureCursorInView();
+            } catch (err) { console.error(err); }
+          });
+        }
+
+
+
       })();
     };
 
@@ -375,6 +439,9 @@ export default function PreviewPage() {
             <button id="playBtn" className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:text-white disabled:cursor-not-allowed disabled:opacity-60">Play</button>
             <button id="pauseBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Pause</button>
             <button id="stopBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Stop</button>
+            <span className="h-6 w-px bg-gray-300"></span>
+            <button id="prevMeasureBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>← Measure</button>
+            <button id="nextMeasureBtn" className="rounded bg-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50" disabled>Measure →</button>
           </div>
         </div>
         <div className="h-[700px] rounded-lg border relative">
@@ -469,10 +536,10 @@ export default function PreviewPage() {
                 if (!t) return;
                 const nextTags = Array.from(new Set([...(piece?.meta.tags || []), t]));
                 const res = await fetch('/api/library', {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ pieceId, tags: nextTags })
-                });
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pieceId, tags: nextTags })
+                  });
                 if (res.ok) {
                   setPiece({ ...piece!, meta: { ...piece!.meta, tags: nextTags } });
                   if (input) input.value = '';

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Music, FileText, Calendar, Download, Trash2, Eye } from 'lucide-react';
+import { Search, Music, FileText, Calendar, Download, Trash2, Eye, CheckCircle, AlertCircle } from 'lucide-react';
 import type { Piece } from '@/lib/types';
 
 export default function LibraryPage() {
@@ -11,6 +11,10 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteResult, setDeleteResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchPieces();
@@ -47,10 +51,7 @@ export default function LibraryPage() {
   };
 
   const handleDelete = async (pieceId: string) => {
-    if (!confirm('Are you sure you want to delete this piece? This action cannot be undone.')) {
-      return;
-    }
-
+    setDeleteResult(null);
     try {
       const response = await fetch(`/api/library?pieceId=${pieceId}`, {
         method: 'DELETE',
@@ -60,12 +61,22 @@ export default function LibraryPage() {
         // Remove from local state
         setPieces(pieces.filter(p => p.id !== pieceId));
         setDeleteConfirm(null);
+        setDeleteResult({
+          success: true,
+          message: 'Piece deleted successfully.',
+        });
       } else {
         const result = await response.json();
-        alert(`Delete failed: ${result.error}`);
+        setDeleteResult({
+          success: false,
+          message: `Delete failed: ${result.error}`,
+        });
       }
     } catch (error: any) {
-      alert(`Delete failed: ${error.message}`);
+      setDeleteResult({
+        success: false,
+        message: `Delete failed: ${error.message}`,
+      });
     }
   };
 
@@ -129,6 +140,27 @@ export default function LibraryPage() {
           )}
         </div>
       </div>
+
+      {deleteResult && (
+        <div
+          className={`rounded-lg border p-4 ${
+            deleteResult.success
+              ? 'border-green-200 bg-green-50 text-green-800'
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            {deleteResult.success ? (
+              <CheckCircle className="h-5 w-5" />
+            ) : (
+              <AlertCircle className="h-5 w-5" />
+            )}
+            <div>
+              <p className="font-medium">{deleteResult.message}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {filteredPieces.length === 0 ? (
         <div className="rounded-xl border-2 border-dashed border-gray-300 py-16 text-center">

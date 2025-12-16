@@ -25,6 +25,7 @@ export async function convertImageToMxl(
   try {
     await fs.ensureDir(outDir);
     const args = ['-batch', '-transcribe', '-export', '-output', outDir, imagePath];
+    console.log(`Running Audiveris: ${audiverisPath} ${args.join(' ')}`);
     await execFileAsync(audiverisPath, args, { timeout: timeoutMs, cwd: outDir });
 
     // Audiveris may create subfolders; search for *.mxl then *.xml under outDir

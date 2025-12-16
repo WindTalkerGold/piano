@@ -28,7 +28,8 @@
       "mcp__chrome-devtools__get_console_message",
       "Bash(git rev-parse:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git diff:*)"
     ],
     "deny": [],
     "ask": []
